@@ -1,4 +1,4 @@
-{% extends 'header.html %} 
+{% extends 'header.html' %}
 {% block title %}
 <title>Student Portal - Dashboard</title> 
 {% endblock %} 
@@ -8,12 +8,11 @@
 <link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
 {% endblock %}
 
-{% block js %}
-<script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
-<script> feather.replace() </script> 
-{% endblock %} 
-{% block body %} 
+{% block body %}
 {% include 'navbar.html' %} 
 {% endblock %}
+
+{% block js %}
+<script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+<script> feather.replace() </script>
 {% endblock %}
-<!doctype html>
