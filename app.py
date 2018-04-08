@@ -23,10 +23,10 @@ def allowed_file(filename):
 def dashboard():
     return render_template('dashboard.html')
 
+
 @app.route('/login/', methods=['GET', 'POST'])
 @app.route('/', methods=['GET', 'POST'])
 def login():
-
     if request.method == "GET":
         return render_template("login.html")
 
@@ -38,21 +38,19 @@ def login():
 
             if attempted_username == "admin" and attempted_password == "password":
                 return redirect(url_for('dashboard'))
-            else :
+            else:
                 error = "Invalid username or password. Try Again"
 
-        return render_template('login.html', error = error)
+        return render_template('login.html', error=error)
 
     except Exception as e:
-        return render_template('login.html', error = error)
-
-    
-
+        return render_template('login.html', error=error)
 
 
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html')
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
