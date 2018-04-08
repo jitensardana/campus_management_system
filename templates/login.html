@@ -10,10 +10,10 @@
 {% block body %}
 
 <div class = "text-center">
-        <form action = "" class="form-signin" mathod = "post">
+        <form action = "" class="form-signin" method = "post">
                 <img class="mb-4" src="{{ url_for('static',filename='images/dtu_logo.png') }}" alt="" width="72" height="72">
                 <h1 class="h3 mb-3 font-weight-normal">Please Sign In</h1>
-                <label for="inputUsername" class="sr-only">Email Address</label>
+                <label for="inputUsername" class="sr-only">Username</label>
                 <input type="text" id="inputUsername" class="form-control" placeholder="Username" name = "username" value = "{{ request.form.username }}"required autofocus>
                 <label for="inputPassword" class="sr-only">Password</label>
                 <input type="password" id="inputPassword" class="form-control" placeholder="Password" name = "password" value = "{{ request.form.password }}" required>
