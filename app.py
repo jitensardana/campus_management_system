@@ -21,7 +21,7 @@ def allowed_file(filename):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    return render_template('default.html')
+    return render_template('login.html')
 
 
 if __name__ == '__main__':
