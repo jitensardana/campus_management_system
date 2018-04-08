@@ -7,6 +7,8 @@ UPLOAD_FOLDER = os.path.dirname(os.path.abspath(__file__)) + '/uploads/'
 DOWNLOAD_FOLDER = os.path.dirname(os.path.abspath(__file__)) + '/downloads/'
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
 
+logged_in = False
+
 app = Flask(__name__, static_url_path="/static")
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
