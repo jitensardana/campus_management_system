@@ -19,9 +19,35 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+@app.route('/dashboard/')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/login/', methods=['GET', 'POST'])
 @app.route('/', methods=['GET', 'POST'])
-def index():
-    return render_template('login.html')
+def login():
+
+    if request.method == "GET":
+        return render_template("login.html")
+
+    error = ''
+    try:
+        if request.method == "POST":
+            attempted_username = request.form['username']
+            attempted_password = request.form['password']
+
+            if attempted_username == "admin" and attempted_password == "password":
+                return redirect(url_for('dashboard'))
+            else :
+                error = "Invalid username or password. Try Again"
+
+        return render_template('login.html', error = error)
+
+    except Exception as e:
+        return render_template('login.html', error = error)
+
+    
+
 
 
 @app.errorhandler(404)
