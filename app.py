@@ -1,91 +1,91 @@
-import os
-from flask import Flask, request, redirect, url_for, render_template, send_from_directory
-import flask_login
-from werkzeug.utils import secure_filename
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from flask import Flask, request, jsonify, abort, g
+from flask_httpauth import HTTPBasicAuth
+from flask_sqlalchemy import SQLAlchemy
+from passlib.apps import custom_app_context as pwd_context
+import datetime
 
-UPLOAD_FOLDER = os.path.dirname(os.path.abspath(__file__)) + '/uploads/'
-DOWNLOAD_FOLDER = os.path.dirname(os.path.abspath(__file__)) + '/downloads/'
-ALLOWED_EXTENSIONS = {'pdf', 'txt'}
-
-logged_in = False
-
-app = Flask(__name__, static_url_path="/static")
-app.secret_key = "some_secret_key"
-DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['DOWNLOAD_FOLDER'] = DOWNLOAD_FOLDER
-# limit upload size upto 8mb
-app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
-login_manager = flask_login.LoginManager()
-login_manager.init_app(app)
-
-temp_users = {'admin': 'password'}
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+db = SQLAlchemy(app)
+auth = HTTPBasicAuth()
 
 
-class User(flask_login.UserMixin):
-    pass
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    roll_number = db.Column(db.String(20), unique=True)
+    course = db.Column(db.String(20))
+    branch = db.Column(db.String(20))
+    id_card_url = db.Column(db.String(250))
+    lib_card_url = db.Column(db.String(250))
+    aadhar_card_url = db.Column(db.String(250))
+    hostel_id_card_url = db.Column(db.String(250))
+
+    def __init__(self, username, password, email):
+        self.username = username
+        self.password_hash = pwd_context.encrypt(password)
+        self.email = email
+
+    def verify_password(self, password):
+        return pwd_context.verify(password, self.password_hash)
+
+    def __repr__(self):
+        return '<User %r>' % self.username
 
 
-@login_manager.user_loader
-def user_loader(username):
-    if username not in temp_users:
-        return
-
-    user = User()
-    user.id = username
-    return user
-
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@auth.verify_password
+def verify_password(username, password):
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.verify_password(password):
+        return False
+    # g is a thread local Ref - https://stackoverflow.com/questions/13617231/how-to-use-g-user-global-in-flask
+    g.user = user
+    return True
 
 
-@app.route('/dashboard/')
-def dashboard():
-    return render_template('dashboard.html')
+@app.route('/api/students/create_users', methods=['POST'])
+def new_user():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    email = request.json.get('email')
+    if username is None or password is None:
+        abort(400)
+    if User.query.filter_by(username=username).first() is not None:
+        abort(400)
+    user = User(username=username, password=password, email=email)
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({
+        'username': username,
+        'status': 'success'
+    })
 
 
-@app.route('/login/', methods=['GET', 'POST'])
-@app.route('/', methods=['GET', 'POST'])
-def login():
-    if request.method == "GET":
-        if flask_login.current_user.is_authenticated:
-            return render_template('dashboard.html')
-        return render_template("login.html")
-
-    error = ''
-    try:
-        if request.method == "POST":
-            attempted_username = request.form['username']
-            attempted_password = request.form['password']
-
-            if attempted_username in temp_users and temp_users[attempted_username] == attempted_password:
-                user = User()
-                user.id = attempted_username
-                flask_login.login_user(user)
-                return redirect(url_for('dashboard'))
-            else:
-                error = "Invalid username or password. Try Again"
-
-        return render_template('login.html', error=error)
-
-    except Exception as e:
-        print('exception occured')
-        return render_template('login.html', error=error)
+@app.route('/api/students/update_profile', methods=['POST'])
+@auth.login_required
+def update_profile():
+    user = g.user
+    ## check which data is received to update and update in db
+    return jsonify({
+        'content': '%s data changed successfully' % user.username
+    })
 
 
-@app.route('/logout')
-def logout():
-    flask_login.logout_user()
-    return redirect(url_for('login'))
+@app.route('/', methods=['GET'])
+@auth.login_required
+def index():
+    return jsonify({
+        'name': '%s' % g.user.username,
+        'api': 'College Management API',
+        'type': 'Major Project'
+    })
 
 
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html')
-
+# creating dummy user
+db.create_all()
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run()
