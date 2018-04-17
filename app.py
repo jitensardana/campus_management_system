@@ -84,6 +84,28 @@ def index():
     })
 
 
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    user = User.query.filter_by(username = username).first()
+    if user is None:
+        abort(400)
+    if user.verify_password(password):
+        return jsonify(
+            {
+                'username' : g.user.username
+                'email' : g.user.email
+                'roll_number' : g.user.roll_number
+                'branch' : g.user.branch
+                'course' : g.user.course
+                'id_card_url' : g.user.id_card_url
+                'lib_card_url' : g.user.lib_card_url
+                'id' : g.user.id
+            }
+        )
+
+
 # creating dummy user
 db.create_all()
 
