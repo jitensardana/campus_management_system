@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, abort, g
 from flask_httpauth import HTTPBasicAuth
 from flask_sqlalchemy import SQLAlchemy
 from passlib.apps import custom_app_context as pwd_context
+from passlib.hash import pbkdf2_sha256
 import datetime
 
 app = Flask(__name__)
@@ -30,32 +31,40 @@ class User(db.Model):
         self.email = email
 
     def verify_password(self, password):
-        return pwd_context.verify(password, self.password_hash)
+        return pwd_context.verify(password, self.password_hash)  # Doubt in this since password is hashed
 
     def __repr__(self):
         return '<User %r>' % self.username
 
 
+def hash_password(password):    # add it to the user class probably
+    password = 'salt..&&0834' + password
+    hash = pbkdf2_sha256.hash(password)
+    return hash
+
 @auth.verify_password
 def verify_password(username, password):
     user = User.query.filter_by(username=username).first()
-    if not user or not user.verify_password(password):
+    if not user or not user.verify_password(hash_password(password)):
         return False
     # g is a thread local Ref - https://stackoverflow.com/questions/13617231/how-to-use-g-user-global-in-flask
     g.user = user
     return True
 
 
+
 @app.route('/api/students/create_users', methods=['POST'])
 def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
+    hash = hash_password(password)
+
     email = request.json.get('email')
     if username is None or password is None:
         abort(400)
     if User.query.filter_by(username=username).first() is not None:
         abort(400)
-    user = User(username=username, password=password, email=email)
+    user = User(username=username, password_hash=hash, email=email)
     db.session.add(user)
     db.session.commit()
     return jsonify({
@@ -68,6 +77,36 @@ def new_user():
 @auth.login_required
 def update_profile():
     user = g.user
+    id_card_url = request.json.get('id_card_url')
+    lib_card_url = request.json.get('lib_card_url')
+    hostel_id_card_url = request.json.get('hostel_id_card_url')
+    aadhar_card_url = request.json.get('aadhar_card_url')
+    email = request.user.get('email')
+    password = requeust.user.get('password')
+    hash = hash_password(password)
+
+    not_valid_url = valid_urls([id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url]) # TODO : write function using regex
+    not_valid_email = valid_email(email) # TODO : write function using regex
+
+    if not_valid_url == False and not_valid_email == False:
+        try :
+            user.id_card_url = id_card_url
+            user.lib_card_url = lib_card_url
+            user.hostel_id_card_url = hostel_id_card_url
+            user.aadhar_card_url = aadhar_card_url
+            user.email = email
+            user.password_hash = hash
+            db.session.commit()
+        except Exception as e:
+            abort(Response(jsonify({
+                'content' : 'Unsuccessful in changing data'
+            })))
+    else 
+        abort(Response(jsonify({
+            'content' : 'Wrong information'
+        })))
+
+
     ## check which data is received to update and update in db
     return jsonify({
         'content': '%s data changed successfully' % user.username
