@@ -53,6 +53,16 @@ class User(db.Model):
 
 class Notice(db.Model):
     id = db.Column(db.Integer, primary_key = True)
+    date_time = db.Column(db.DateTime, default=datetime.datetime.now())
+    title = db.Column(db.String(250))
+    content = db.Column(db.String(1000))
+    branch = db.Column(Db.String(20))
+
+    def __init__(self, title, content, branch):
+        self.title = title
+        self.content = content
+        self.branch = branch
+        
 
 
 
