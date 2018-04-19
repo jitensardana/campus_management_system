@@ -1,7 +1,6 @@
-from flask import Flask, request, jsonify, abort, g
+from flask import Flask, request, jsonify, abort, g, Response
 from flask_httpauth import HTTPBasicAuth
 from flask_sqlalchemy import SQLAlchemy
-from passlib.apps import custom_app_context as pwd_context
 from passlib.hash import pbkdf2_sha256
 import datetime
 
@@ -12,11 +11,10 @@ db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
 
 
-def hash_password(password):    # add it to the user class probably
+def hash_password(password):  # add it to the user class probably
     password = 'salt..&&0834' + password
     hash = pbkdf2_sha256.hash(password)
     return hash
-
 
 
 class User(db.Model):
@@ -32,9 +30,9 @@ class User(db.Model):
     aadhar_card_url = db.Column(db.String(250))
     hostel_id_card_url = db.Column(db.String(250))
 
-    def __init__(self, username, password, email):
+    def __init__(self, username, password_hash, email):
         self.username = username
-        self.password_hash = hash_password(password)
+        self.password_hash = password_hash
         self.email = email
 
     def verify_password(self, password):
@@ -42,29 +40,25 @@ class User(db.Model):
             hash = hash_password(password)  # Doubt in this since password is hashed
             if hash == self.password_hash:
                 return True
-        
             return False
         except Exception as e:
-            return False, "Exception occurred" #If error occurs then remove exception occurred.
+            return False, "Exception occurred"  # If error occurs then remove exception occurred.
 
     def __repr__(self):
         return '<User %r>' % self.username
 
 
 class Notice(db.Model):
-    id = db.Column(db.Integer, primary_key = True)
+    id = db.Column(db.Integer, primary_key=True)
     date_time = db.Column(db.DateTime, default=datetime.datetime.now())
     title = db.Column(db.String(250))
     content = db.Column(db.String(1000))
-    branch = db.Column(Db.String(20))
+    branch = db.Column(db.String(20))
 
     def __init__(self, title, content, branch):
         self.title = title
         self.content = content
         self.branch = branch
-        
-
-
 
 
 @auth.verify_password
@@ -77,19 +71,18 @@ def verify_password(username, password):
     return True
 
 
-
 @app.route('/api/students/create_users', methods=['POST'])
 def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
-    hash = hash_password(password)
+    password_hash = hash_password(password)
 
     email = request.json.get('email')
     if username is None or password is None:
         abort(400)
     if User.query.filter_by(username=username).first() is not None:
         abort(400)
-    user = User(username=username, password_hash=hash, email=email)
+    user = User(username=username, password_hash=password_hash, email=email)
     db.session.add(user)
     db.session.commit()
     return jsonify({
@@ -106,15 +99,16 @@ def update_profile():
     lib_card_url = request.json.get('lib_card_url')
     hostel_id_card_url = request.json.get('hostel_id_card_url')
     aadhar_card_url = request.json.get('aadhar_card_url')
-    email = request.user.get('email')
-    password = requeust.user.get('password')
+    email = request.json.get('email')
+    password = request.json.get('password')
     hash = hash_password(password)
 
-    not_valid_url = valid_urls([id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url]) # TODO : write function using regex
-    not_valid_email = valid_email(email) # TODO : write function using regex
+    not_valid_url = valid_urls(
+        [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
+    not_valid_email = valid_email(email)  # TODO : write function using regex
 
     if not_valid_url == False and not_valid_email == False:
-        try :
+        try:
             user.id_card_url = id_card_url
             user.lib_card_url = lib_card_url
             user.hostel_id_card_url = hostel_id_card_url
@@ -124,18 +118,27 @@ def update_profile():
             db.session.commit()
         except Exception as e:
             abort(Response(jsonify({
-                'content' : 'Unsuccessful in changing data'
+                'content': 'Unsuccessful in changing data'
             })))
-    else 
+    else:
         abort(Response(jsonify({
-            'content' : 'Wrong information'
+            'content': 'Wrong information'
         })))
-
 
     ## check which data is received to update and update in db
     return jsonify({
         'content': '%s data changed successfully' % user.username
     })
+
+
+def valid_email(email):
+    # write logic
+    return True
+
+
+def valid_urls(email_list):
+    # write logic
+    return True
 
 
 @app.route('/', methods=['GET'])
@@ -152,20 +155,20 @@ def index():
 def login():
     username = request.json.get('username')
     password = request.json.get('password')
-    user = User.query.filter_by(username = username).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         abort(400)
     if user.verify_password(password):
         return jsonify(
             {
-                'username' : g.user.username
-                'email' : g.user.email
-                'roll_number' : g.user.roll_number
-                'branch' : g.user.branch
-                'course' : g.user.course
-                'id_card_url' : g.user.id_card_url
-                'lib_card_url' : g.user.lib_card_url
-                'id' : g.user.id
+                'username': g.user.username,
+                'email': g.user.email,
+                'roll_number': g.user.roll_number,
+                'branch': g.user.branch,
+                'course': g.user.course,
+                'id_card_url': g.user.id_card_url,
+                'lib_card_url': g.user.lib_card_url,
+                'id': g.user.id
             }
         )
 
