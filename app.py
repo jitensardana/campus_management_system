@@ -12,6 +12,13 @@ db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
 
 
+def hash_password(password):    # add it to the user class probably
+    password = 'salt..&&0834' + password
+    hash = pbkdf2_sha256.hash(password)
+    return hash
+
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -27,20 +34,28 @@ class User(db.Model):
 
     def __init__(self, username, password, email):
         self.username = username
-        self.password_hash = pwd_context.encrypt(password)
+        self.password_hash = hash_password(password)
         self.email = email
 
     def verify_password(self, password):
-        return pwd_context.verify(password, self.password_hash)  # Doubt in this since password is hashed
+        try:
+            hash = hash_password(password)  # Doubt in this since password is hashed
+            if hash == self.password_hash:
+                return True
+        
+            return False
+        except Exception as e:
+            return False, "Exception occurred" #If error occurs then remove exception occurred.
 
     def __repr__(self):
         return '<User %r>' % self.username
 
 
-def hash_password(password):    # add it to the user class probably
-    password = 'salt..&&0834' + password
-    hash = pbkdf2_sha256.hash(password)
-    return hash
+class Notice(db.Model):
+    id = db.Column(db.Integer, primary_key = True)
+
+
+
 
 @auth.verify_password
 def verify_password(username, password):
