@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify, abort, g, Response
 from flask_httpauth import HTTPBasicAuth
 from flask_sqlalchemy import SQLAlchemy
-from passlib.hash import pbkdf2_sha256
+from passlib.apps import custom_app_context as pwd_context
+import os
 import datetime
 
 app = Flask(__name__)
@@ -9,12 +10,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
-
-
-def hash_password(password):  # add it to the user class probably
-    password = 'salt..&&0834' + password
-    hash = pbkdf2_sha256.hash(password)
-    return hash
 
 
 class User(db.Model):
@@ -30,22 +25,16 @@ class User(db.Model):
     aadhar_card_url = db.Column(db.String(250))
     hostel_id_card_url = db.Column(db.String(250))
 
-    def __init__(self, username, password_hash, email):
+    def __init__(self, username, password, email):
         self.username = username
-        self.password_hash = password_hash
+        self.password_hash = pwd_context.encrypt(password)
         self.email = email
 
     def verify_password(self, password):
-        try:
-            hash = hash_password(password)  # Doubt in this since password is hashed
-            if hash == self.password_hash:
-                return True
-            return False
-        except Exception as e:
-            return False, "Exception occurred"  # If error occurs then remove exception occurred.
+        return pwd_context.verify(password, self.password_hash)
 
     def __repr__(self):
-        return '<User %r>' % self.username
+        return 'User : ' + self.username + '\nemail : ' + self.email
 
 
 class Notice(db.Model):
@@ -64,7 +53,7 @@ class Notice(db.Model):
 @auth.verify_password
 def verify_password(username, password):
     user = User.query.filter_by(username=username).first()
-    if not user or not user.verify_password(hash_password(password)):
+    if not user or not user.verify_password(password):
         return False
     # g is a thread local Ref - https://stackoverflow.com/questions/13617231/how-to-use-g-user-global-in-flask
     g.user = user
@@ -75,14 +64,13 @@ def verify_password(username, password):
 def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
-    password_hash = hash_password(password)
-
     email = request.json.get('email')
+
     if username is None or password is None:
         abort(400)
     if User.query.filter_by(username=username).first() is not None:
         abort(400)
-    user = User(username=username, password_hash=password_hash, email=email)
+    user = User(username=username, password=password, email=email)
     db.session.add(user)
     db.session.commit()
     return jsonify({
@@ -101,7 +89,7 @@ def update_profile():
     aadhar_card_url = request.json.get('aadhar_card_url')
     email = request.json.get('email')
     password = request.json.get('password')
-    hash = hash_password(password)
+    hash = pwd_context.encrypt(password)
 
     not_valid_url = valid_urls(
         [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
@@ -152,29 +140,31 @@ def index():
 
 
 @app.route('/login', methods=['POST'])
+@auth.login_required
 def login():
-    username = request.json.get('username')
-    password = request.json.get('password')
-    user = User.query.filter_by(username=username).first()
-    if user is None:
+    if g.user is None:
         abort(400)
-    if user.verify_password(password):
-        return jsonify(
-            {
-                'username': g.user.username,
-                'email': g.user.email,
-                'roll_number': g.user.roll_number,
-                'branch': g.user.branch,
-                'course': g.user.course,
-                'id_card_url': g.user.id_card_url,
-                'lib_card_url': g.user.lib_card_url,
-                'id': g.user.id
-            }
-        )
+    return jsonify(
+        {
+            'username': g.user.username,
+            'email': g.user.email,
+            'roll_number': g.user.roll_number,
+            'branch': g.user.branch,
+            'course': g.user.course,
+            'id_card_url': g.user.id_card_url,
+            'lib_card_url': g.user.lib_card_url,
+            'id': g.user.id
+        }
+    )
 
 
 # creating dummy user
 db.create_all()
 
+## sudo ufw disable  -> To disable firewall in ubuntu to access flask server from Mobile
+
 if __name__ == '__main__':
-    app.run()
+    for user in User.query.all():
+        print(user)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
