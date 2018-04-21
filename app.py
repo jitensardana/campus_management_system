@@ -31,6 +31,8 @@ class User(db.Model):
         self.username = username
         self.password_hash = pwd_context.encrypt(password)
         self.email = email
+        if user_access_level > 5 or user_access_level < 1:
+            user_access_level = 1
         self.user_access_level = user_access_level
 
     def verify_password(self, password):
