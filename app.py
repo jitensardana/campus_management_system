@@ -13,6 +13,7 @@ auth = HTTPBasicAuth()
 
 
 class User(db.Model):
+    __tablename__ = 'Users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
@@ -24,12 +25,13 @@ class User(db.Model):
     lib_card_url = db.Column(db.String(250))
     aadhar_card_url = db.Column(db.String(250))
     hostel_id_card_url = db.Column(db.String(250))
+    user_access_level = db.Column(db.Integer) # 1 for student, 2 for working staff, 3 for teachers and admin departments, 4 for HOD, 5 rest
 
-
-    def __init__(self, username, password, email):
+    def __init__(self, username, password, email, user_access_level=1):
         self.username = username
         self.password_hash = pwd_context.encrypt(password)
         self.email = email
+        self.user_access_level = user_access_level
 
     def verify_password(self, password):
         return pwd_context.verify(password, self.password_hash)
@@ -38,59 +40,68 @@ class User(db.Model):
         return 'User : ' + self.username + '\nemail : ' + self.email
 
 
-
-
-
 class Notice(db.Model):
+    __tablename__ = "Notices"
     id = db.Column(db.Integer, primary_key=True)
-    date_time = db.Column(db.DateTime, default=datetime.datetime.now())
+    date_created = db.Column(db.DateTime, default=datetime.datetime.now())
     title = db.Column(db.String(250))
     content = db.Column(db.String(1000))
     branch = db.Column(db.String(20))
+    created_by = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
+    date_modified = db.Column(db.DateTime, default=datetime.datetime.now())
 
-    def __init__(self, title, content, branch):
+    def __init__(self, title, content, branch, user):
         self.title = title
         self.content = content
         self.branch = branch
+        self.created_by = user.id
 
     def __repr__(self):
-        return "Title: "+self.title +"\nContent: "+self.content+"\n"
+        return "Title: "+self.title +"\nContent: "+self.content+"\nCreated By: " + self.created_by+"\n"
 
 
 @app.route('/api/notice/create_notice', methods=['POST'])
 @auth.login_required
 def create_notice():
-    try:
-        title = request.json.get('title')
-        branch = request.json.get('branch')
-        content = request.json.get('content')
-
-        if title is None or branch is None or content is None:
-            return jsonify({
-                'code' : 400,
-                'content' : 'All the fields are required'
-            })
-
-        new_notice = Notice(title = title, content = content, branch = branch)
+    user_current = g.user
+    if user_current.user_access_level >= 2 :
         try:
-            db.session.add(new_notice)
-            db.session.commit()
-            return jsonify({
-                'code':201,
-                'content': 'Notice create successfully'
-            })
+            title = request.json.get('title')
+            branch = request.json.get('branch')
+            content = request.json.get('content')
+
+            if title is None or branch is None or content is None:
+                return jsonify({
+                    'code': 400,
+                    'content': 'All the fields are required'
+                })
+
+            new_notice = Notice(title=title, content=content, branch=branch, user=user_current)
+            try:
+                db.session.add(new_notice)
+                db.session.commit()
+                # g.notice = new_notice  Don't know it's use yet
+                return jsonify({
+                    'code': 201,
+                    'content': 'Notice create successfully'
+                })
+            except Exception as e:
+                return jsonify({
+                    'code': 503,
+                    'content': 'Unable to create notice',
+                    'exception': e.__str__()
+                })
+
         except Exception as e:
             return jsonify({
-                'code': 503,
-                'content' : 'Unable to create notice',
-                'exception' : e.__str__()
+                'code': 500,
+                'content': 'Something went wrong. Please try again',
+                'exception': e.__str__()
             })
-
-    except Exception as e:
+    else:
         return jsonify({
-            'code': 500,
-            'content':'Something went wrong. Please try again',
-            'exception': e.__str__()
+            'code':400,
+            'content':'Permission denied'
         })
 
 
@@ -130,6 +141,63 @@ def view_notices():
         })
 
 
+@app.route('/api/notice/update_notice', methods=['POST'])
+@auth.login_required
+def update_notice():
+    try:
+        user_current = g.user
+        if user_current.user_access_level >= 2:
+            notice_id = request.json.get('id')
+            title = request.json.get('title')
+            content = request.json.get('content')
+
+            if id is None or title is None or content is None:
+                return jsonify({
+                    'code': 403,
+                    'content': 'Request contains empty fields',
+
+                })
+
+            try:
+                notice = Notice.query.filter_by(id=notice_id).first()
+                notice.title = title
+                notice.content = content
+                notice.date_modified = datetime.datetime.now()
+                if notice.created_by != user_current.id:
+                    return jsonify({
+                        'code': 400,
+                        'content': 'You have not created this notice'
+                    })
+                try:
+                    db.session.commit()
+                    return jsonify({
+                        'code': 201,
+                        'content': 'Changes made successfully'
+                    })
+                except Exception as e:
+                    return jsonify({
+                        'code':503,
+                        'content' : 'Unable to change'
+                    })
+            except Exception as e:
+                return jsonify({
+                    'code': 503,
+                    'content': 'Unable to access database',
+                    'exception': e.__str__()
+                })
+        else:
+            return jsonify({
+                'code':400,
+                'content': 'Permission denied'
+            })
+    except Exception as e:
+        return jsonify({
+            'code':400,
+            'content' : 'Error occurred',
+            'exception': e.__str__()
+        })
+
+
 @auth.verify_password
 def verify_password(username, password):
     user = User.query.filter_by(username=username).first()
@@ -145,18 +213,22 @@ def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
     email = request.json.get('email')
+    user_access_level = request.json.get('user_access_level')
 
-    if username is None or password is None:
+    if username is None or password is None or user_access_level > 5 or user_access_level < 1:
         abort(400)
     if User.query.filter_by(username=username).first() is not None:
-        abort(400)
-    user = User(username=username, password=password, email=email)
+        g.user = User.query.filter_by(username=username).first()
+        return
+
+    user = User(username=username, password=password, email=email, user_access_level=user_access_level)
     db.session.add(user)
     db.session.commit()
     return jsonify({
         'username': username,
         'status': 'success'
     })
+
 
 
 @app.route('/api/students/update_profile', methods=['POST'])
