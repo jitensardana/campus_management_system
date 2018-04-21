@@ -25,6 +25,7 @@ class User(db.Model):
     aadhar_card_url = db.Column(db.String(250))
     hostel_id_card_url = db.Column(db.String(250))
 
+
     def __init__(self, username, password, email):
         self.username = username
         self.password_hash = pwd_context.encrypt(password)
@@ -35,6 +36,9 @@ class User(db.Model):
 
     def __repr__(self):
         return 'User : ' + self.username + '\nemail : ' + self.email
+
+
+
 
 
 class Notice(db.Model):
@@ -48,6 +52,82 @@ class Notice(db.Model):
         self.title = title
         self.content = content
         self.branch = branch
+
+    def __repr__(self):
+        return "Title: "+self.title +"\nContent: "+self.content+"\n"
+
+
+@app.route('/api/notice/create_notice', methods=['POST'])
+@auth.login_required
+def create_notice():
+    try:
+        title = request.json.get('title')
+        branch = request.json.get('branch')
+        content = request.json.get('content')
+
+        if title is None or branch is None or content is None:
+            return jsonify({
+                'code' : 400,
+                'content' : 'All the fields are required'
+            })
+
+        new_notice = Notice(title = title, content = content, branch = branch)
+        try:
+            db.session.add(new_notice)
+            db.session.commit()
+            return jsonify({
+                'code':201,
+                'content': 'Notice create successfully'
+            })
+        except Exception as e:
+            return jsonify({
+                'code': 503,
+                'content' : 'Unable to create notice',
+                'exception' : e.__str__()
+            })
+
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'content':'Something went wrong. Please try again',
+            'exception': e.__str__()
+        })
+
+
+@app.route('/api/notice/view_notices', methods=['GET'])
+@auth.login_required
+def view_notices():
+    try:
+        branch = request.json.get('branch')
+        if branch is None:
+            return jsonify({
+                'code':400,
+                'content':'Branch is required'
+            })
+        try:
+            notices = Notice.query.filter_by(branch=branch)
+        except Exception as e:
+            return jsonify({
+                'code':503,
+                'content':'Unable to access database',
+                'exception' : e.__str__()
+            })
+        new_notices = [[]]
+        sorted(notices, key=lambda notice: notice.id, reverse=True)
+
+        for notice_ in notices:
+            new_notice = [notice_.id, notice_.title, notice_.content, notice_.date_time]
+            new_notices += [new_notice]
+
+        return jsonify({
+            'code': 201,
+            'notices': new_notices
+        })
+    except Exception as e:
+        return jsonify({
+            'code':400,
+            'content':'Bad request'
+        })
 
 
 @auth.verify_password
