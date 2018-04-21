@@ -49,6 +49,7 @@ class Notice(db.Model):
     branch = db.Column(db.String(20))
     created_by = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
     date_modified = db.Column(db.DateTime, default=datetime.datetime.now())
+    attachment_url = db.Column(db.String(250))
 
     def __init__(self, title, content, branch, user):
         self.title = title
@@ -124,11 +125,12 @@ def view_notices():
                 'exception' : e.__str__()
             })
         new_notices = [[]]
-        sorted(notices, key=lambda notice: notice.id, reverse=True)
 
         for notice_ in notices:
             new_notice = [notice_.id, notice_.title, notice_.content, notice_.date_time]
             new_notices += [new_notice]
+
+        sorted(new_notices, key=lambda new_notice: new_notice[0], reverse=True)
 
         return jsonify({
             'code': 201,
@@ -160,14 +162,14 @@ def update_notice():
 
             try:
                 notice = Notice.query.filter_by(id=notice_id).first()
-                notice.title = title
-                notice.content = content
                 notice.date_modified = datetime.datetime.now()
                 if notice.created_by != user_current.id:
                     return jsonify({
                         'code': 400,
                         'content': 'You have not created this notice'
                     })
+                notice.title = title
+                notice.content = content
                 try:
                     db.session.commit()
                     return jsonify({
@@ -228,7 +230,6 @@ def new_user():
         'username': username,
         'status': 'success'
     })
-
 
 
 @app.route('/api/students/update_profile', methods=['POST'])
