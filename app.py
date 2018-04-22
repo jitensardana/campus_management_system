@@ -25,7 +25,9 @@ class User(db.Model):
     lib_card_url = db.Column(db.String(250))
     aadhar_card_url = db.Column(db.String(250))
     hostel_id_card_url = db.Column(db.String(250))
-    user_access_level = db.Column(db.Integer) # 1 for student, 2 for working staff, 3 for teachers and admin departments, 4 for HOD, 5 rest
+    user_access_level = db.Column(db.Integer)
+
+    # 1 for student, 2 for COE department, 3 for admin, 4 for branch department, 5 HOD
 
     def __init__(self, username, password, email, user_access_level=1):
         self.username = username
@@ -60,18 +62,22 @@ class Notice(db.Model):
         self.created_by = user.id
 
     def __repr__(self):
-        return "Title: "+self.title +"\nContent: "+self.content+"\nCreated By: " + self.created_by+"\n"
+        return "Title: " + self.title + "\nContent: " + self.content + "\nCreated By: " + str(self.created_by) + "\n"
 
 
 @app.route('/api/notice/create_notice', methods=['POST'])
 @auth.login_required
 def create_notice():
     user_current = g.user
-    if user_current.user_access_level >= 2 :
+    if user_current.user_access_level >= 2:
         try:
             title = request.json.get('title')
             branch = request.json.get('branch')
             content = request.json.get('content')
+
+            print(title)
+            print(branch)
+            print(content)
 
             if title is None or branch is None or content is None:
                 return jsonify({
@@ -83,10 +89,11 @@ def create_notice():
             try:
                 db.session.add(new_notice)
                 db.session.commit()
+                print("Notice created successfully")
                 # g.notice = new_notice  Don't know it's use yet
                 return jsonify({
                     'code': 201,
-                    'content': 'Notice create successfully'
+                    'content': 'Notice created successfully'
                 })
             except Exception as e:
                 return jsonify({
@@ -103,8 +110,8 @@ def create_notice():
             })
     else:
         return jsonify({
-            'code':400,
-            'content':'Permission denied'
+            'code': 400,
+            'content': 'Permission denied'
         })
 
 
@@ -115,24 +122,32 @@ def view_notices():
         branch = request.json.get('branch')
         if branch is None:
             return jsonify({
-                'code':400,
-                'content':'Branch is required'
+                'code': 400,
+                'content': 'Branch is required'
             })
         try:
             notices = Notice.query.filter_by(branch=branch)
         except Exception as e:
             return jsonify({
-                'code':503,
-                'content':'Unable to access database',
-                'exception' : e.__str__()
+                'code': 503,
+                'content': 'Unable to access database',
+                'exception': e.__str__()
             })
-        new_notices = [[]]
+        new_notices = []
 
         for notice_ in notices:
-            new_notice = [notice_.id, notice_.title, notice_.content, notice_.date_time]
-            new_notices += [new_notice]
+            new_notice = {
+                'id': notice_.id,
+                'title': notice_.title,
+                'content': notice_.content,
+                'branch': notice_.branch,
+                'attachment_url': notice_.attachment_url,
+                'date_time': notice_.date_time
+            }
+            # new_notice = [notice_.id, notice_.title, notice_.content, notice_.date_time]
+            new_notices.append(new_notice)
 
-        sorted(new_notices, key=lambda new_notice: new_notice[0], reverse=True)
+        sorted(new_notices, key=lambda new_notice: new_notice['date_time'], reverse=True)
 
         return jsonify({
             'code': 201,
@@ -140,8 +155,8 @@ def view_notices():
         })
     except Exception as e:
         return jsonify({
-            'code':400,
-            'content':'Bad request'
+            'code': 400,
+            'content': 'Bad request'
         })
 
 
@@ -180,8 +195,8 @@ def update_notice():
                     })
                 except Exception as e:
                     return jsonify({
-                        'code':503,
-                        'content' : 'Unable to change'
+                        'code': 503,
+                        'content': 'Unable to change'
                     })
             except Exception as e:
                 return jsonify({
@@ -191,13 +206,13 @@ def update_notice():
                 })
         else:
             return jsonify({
-                'code':400,
+                'code': 400,
                 'content': 'Permission denied'
             })
     except Exception as e:
         return jsonify({
-            'code':400,
-            'content' : 'Error occurred',
+            'code': 400,
+            'content': 'Error occurred',
             'exception': e.__str__()
         })
 
@@ -217,7 +232,8 @@ def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
     email = request.json.get('email')
-    user_access_level = request.json.get('user_access_level')
+    user_access_level = int(request.json.get('user_access_level'))
+    branch = request.json.get('branch')
 
     if username is None or password is None or user_access_level > 5 or user_access_level < 1:
         abort(400)
@@ -226,6 +242,8 @@ def new_user():
         return
 
     user = User(username=username, password=password, email=email, user_access_level=user_access_level)
+    if branch is not None:
+        user.branch = branch
     db.session.add(user)
     db.session.commit()
     return jsonify({
@@ -306,6 +324,7 @@ def login():
             'roll_number': g.user.roll_number,
             'branch': g.user.branch,
             'course': g.user.course,
+            'user_access_level': g.user.user_access_level,
             'id_card_url': g.user.id_card_url,
             'lib_card_url': g.user.lib_card_url,
             'id': g.user.id
@@ -321,5 +340,15 @@ db.create_all()
 if __name__ == '__main__':
     for user in User.query.all():
         print(user)
+    for notice in Notice.query.all():
+        print(notice)
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
+
+"""
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek","password":"vivek","email":"vivek","user_access_level":"1"}' http://0.0.0.0:5000/api/students/create_users
+
+
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek4","password":"vivek4","email":"vivek4","branch":"ece","user_access_level":"4"}' http://0.0.0.0:5000/api/students/create_users
+"""
