@@ -26,6 +26,8 @@ class User(db.Model):
     aadhar_card_url = db.Column(db.String(250))
     hostel_id_card_url = db.Column(db.String(250))
     user_access_level = db.Column(db.Integer)
+    notices = db.relationship("Notice", backref="Users")
+    requests = db.relationship("ApplicationRequests", backref="Users")
 
     # 1 for student, 2 for COE department, 3 for admin, 4 for branch department, 5 HOD
 
@@ -39,6 +41,19 @@ class User(db.Model):
 
     def verify_password(self, password):
         return pwd_context.verify(password, self.password_hash)
+
+    def get_json(self):
+        return {
+            'username': self.username,
+            'email': self.email,
+            'roll_number': self.roll_number,
+            'branch': self.branch,
+            'course': self.course,
+            'user_access_level': self.user_access_level,
+            'id_card_url': self.id_card_url,
+            'lib_card_url': self.lib_card_url,
+            'id': self.id
+        }
 
     def __repr__(self):
         return 'User : ' + self.username + '\nemail : ' + self.email
@@ -63,6 +78,193 @@ class Notice(db.Model):
 
     def __repr__(self):
         return "Title: " + self.title + "\nContent: " + self.content + "\nCreated By: " + str(self.created_by) + "\n"
+
+class Department(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+class ApplicationRequests(db.Model):
+    __tablename__ = "Requests"
+    id = db.Column(db.Integer, primary_key=True)
+    request_from = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
+    request_type = db.Column(db.Integer, nullable=False)
+    time_created = db.Column(db.DateTime, default=datetime.datetime.now(), nullable=False)
+    time_modified = db.Column(db.DateTime, default=datetime.datetime.now(), nullable=False)
+    time_completed = db.Column(db.DateTime)
+    state = db.Column(db.Integer, default=0) # 0: Received, 1:Read, 3: Processing 4: Rejected, 5:Completed
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.String(1000))
+    access_level = db.Column(db.Integer, nullable=False)
+    attachment_url = db.Column(db.String(250))
+
+    def __init__(self, request_from, request_type, title, content):
+        self.request_from = request_from
+        self.request_type = request_type
+        if request_type == 4: #Department request
+            self.access_level = 4
+        elif request_type == 2: #coe
+            self.access_level = 2
+        elif request_type == 3 : #admin
+            self.access_level = 3
+        else:
+            self.access_level = 4
+
+        self.title = title
+        self.content = content
+
+
+    def __repr__(self):
+        return "Request id: "+self.request_id+"\nTitle: "+self.title+"\nRequest from: "+self.request_from+"\nRequest type: "+self.request_type+"\n"
+
+
+@app.route('/api/requests/create_request', methods=['POST'])
+@auth.login_required
+def create_request():
+    try:
+        curr_user = g.user
+        title = request.json.get('title')
+        content = request.json.get('content')
+        request_type = request.json.get('request_type')
+        request_from = curr_user.id
+
+        if title is None or request_type is None or request_from is None:
+            return jsonify({
+                'code':400,
+                'content': 'Bad Request',
+                'exception': 'Data is null'
+            })
+        try:
+            new_request = ApplicationRequests(request_from, request_type, title, content)
+            try:
+                db.session.add(new_request)
+                db.session.commit()
+                return jsonify({
+                    'code':200,
+                    'content': 'Request created successfully'
+                })
+            except Exception as e:
+                return jsonify({
+                    'code':503,
+                    'content': 'Internal server error',
+                    'exception': e.__str__()
+                })
+
+        except Exception as e:
+            return jsonify({
+                'code':400,
+                'content':'Unable to create request',
+                'exception': e.__str__()
+            })
+
+
+    except Exception as e:
+        return jsonify({
+            'code':400,
+            'content': 'Bad Request',
+            'exception': e.__str__()
+        })
+
+
+@app.route('/api/requests/view_request', methods=['POST'])
+@auth.login_required
+def view_request():
+    try:
+        curr_user = g.user
+        if curr_user.user_access_level > 1 and curr_user.user_access_level < 5:
+            access_level = curr_user.user_access_level
+            try:
+                requests = ApplicationRequests.query.filter_by(access_level=access_level)
+                new_requests = []
+
+                for request_ in requests:
+                    new_request = {
+                        'id' : request_.id,
+                        'type': request_.request_type,
+                        'title': request_.title,
+                        'content': request_.content,
+                        'state': request_.state,
+                        'time_modified': request_.time_modified,
+                        'reqeust_from' : User.query.filter_by(id=request_.request_from).first().get_json()
+                    }
+                    new_requests.append(new_request)
+
+                sorted(new_requests, key=lambda new_request: new_request['time_modified'], reverse=True)
+
+                return jsonify({
+                    'code': 200,
+                    'requests': new_requests
+                })
+            except Exception as e:
+                return jsonify({
+                    'code':400,
+                    'content': 'Unable to fetch requests',
+                    'exception': e.__str__()
+                })
+
+        else:
+            return jsonify({
+                'code':400,
+                'content': 'Permission denied'
+            })
+    except Exception as e:
+        return jsonify({
+            'code':400,
+            'content': 'Unable to view requests',
+            'exception': e.__str__()
+        })
+
+
+@app.route('/api/requests/update_requests', methods=['POST'])
+@auth.login_required
+def update_request():
+    curr_user = g.user
+    try:
+        request_id = request.json.get('id')
+        request_title = request.json.get('title')
+        request_content = request.json.get('content')
+        request_type = request.json.get('type')
+
+        if request_id is None or request_title is None or request_content is None or request_type is None:
+            return jsonify({
+                'code':400,
+                'content': 'Some fields are empty'
+            })
+
+        try:
+            curr_request = ApplicationRequests.query.filter_by(id=request_id)
+            if curr_request.request_from == curr_user.id:
+                try:
+                    curr_request.title = request_title
+                    curr_request.content = request_content
+                    curr_request.request_type = request_type
+                    curr_request.time_modified = datetime.datetime.now()
+                    db.session.commit()
+                    return jsonify({
+                        'code':200,
+                        'content': 'Changes made successfully'
+                    })
+                except Exception as e:
+                    return jsonify({
+                        'code': 400,
+                        'content': 'Unable to make changes'
+                    })
+
+        except Exception as e:
+            return jsonify({
+                'code': 400,
+                'content': 'Unable to access database'
+            })
+
+        else:
+            return jsonify({
+                'code': 400,
+                'content': 'Permission Denied'
+            })
+
+    except Exception as e:
+        return jsonify({
+            'code':400,
+            'content': 'Bad Request'
+        })
 
 
 @app.route('/api/notice/create_notice', methods=['POST'])
@@ -317,19 +519,7 @@ def index():
 def login():
     if g.user is None:
         abort(400)
-    return jsonify(
-        {
-            'username': g.user.username,
-            'email': g.user.email,
-            'roll_number': g.user.roll_number,
-            'branch': g.user.branch,
-            'course': g.user.course,
-            'user_access_level': g.user.user_access_level,
-            'id_card_url': g.user.id_card_url,
-            'lib_card_url': g.user.lib_card_url,
-            'id': g.user.id
-        }
-    )
+    return jsonify(g.user.get_json())
 
 
 # creating dummy user
@@ -350,5 +540,18 @@ if __name__ == '__main__':
 curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek","password":"vivek","email":"vivek","user_access_level":"1"}' http://0.0.0.0:5000/api/students/create_users
 
 
-curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek4","password":"vivek4","email":"vivek4","branch":"ece","user_access_level":"4"}' http://0.0.0.0:5000/api/students/create_users
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"jiten","password":"jiten803","email":"jitensardana@gmail.com","branch":"ece","user_access_level":"4"}' http://0.0.0.0:5000/api/students/create_users
+
+
+view notices : curl -u miguel:python -i -X GET -H "Content-Type: application/json" -d '{"branch":"EC"}' http://0.0.0.0:5000/api/notice/view_notices
+
+create notice : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{"title":"third", "content":"third", "branch":"EC"}' http://0.0.0.0:5000/api/notice/create_notice
+
+
+
+create request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{"title":"First", "content":"Request", "request_type":4}' http://0.0.0.0:5000/api/requests/create_request
+
+
+view request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/requests/view_request
+
 """
