@@ -317,7 +317,7 @@ def create_notice():
         })
 
 
-@app.route('/api/notice/view_notices', methods=['GET'])
+@app.route('/api/notice/view_notices', methods=['POST'])
 @auth.login_required
 def view_notices():
     try:
@@ -344,11 +344,10 @@ def view_notices():
                 'content': notice_.content,
                 'branch': notice_.branch,
                 'attachment_url': notice_.attachment_url,
-                'date_time': notice_.date_time
+                'date_time': notice_.date_created
             }
             # new_notice = [notice_.id, notice_.title, notice_.content, notice_.date_time]
             new_notices.append(new_notice)
-
         sorted(new_notices, key=lambda new_notice: new_notice['date_time'], reverse=True)
 
         return jsonify({
@@ -356,6 +355,7 @@ def view_notices():
             'notices': new_notices
         })
     except Exception as e:
+        print(e)
         return jsonify({
             'code': 400,
             'content': 'Bad request'
