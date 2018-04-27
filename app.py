@@ -239,7 +239,7 @@ def update_request():
                     curr_request.time_modified = datetime.datetime.now()
                     db.session.commit()
                     return jsonify({
-                        'code':200,
+                        'code': 200,
                         'content': 'Changes made successfully'
                     })
                 except Exception as e:
@@ -248,16 +248,16 @@ def update_request():
                         'content': 'Unable to make changes'
                     })
 
+            else:
+                return jsonify({
+                    'code': 400,
+                    'content': 'Permission Denied'
+                })
+
         except Exception as e:
             return jsonify({
                 'code': 400,
                 'content': 'Unable to access database'
-            })
-
-        else:
-            return jsonify({
-                'code': 400,
-                'content': 'Permission Denied'
             })
 
     except Exception as e:
