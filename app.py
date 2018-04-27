@@ -28,6 +28,7 @@ class User(db.Model):
     user_access_level = db.Column(db.Integer)
     notices = db.relationship("Notice", backref="Users")
     requests = db.relationship("ApplicationRequests", backref="Users")
+    results = db.relationship("Result", backref="Users")
 
     # 1 for student, 2 for COE department, 3 for admin, 4 for branch department, 5 HOD
 
@@ -79,8 +80,31 @@ class Notice(db.Model):
     def __repr__(self):
         return "Title: " + self.title + "\nContent: " + self.content + "\nCreated By: " + str(self.created_by) + "\n"
 
-class Department(db.Model):
+class Result(db.Model):
+    __tablename__ = "Result"
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
+    semester = db.Column(db.Integer, nullable=False)
+    subject1 = db.Column(db.Integer)
+    subject2 = db.Column(db.Integer)
+    subject3 = db.Column(db.Integer)
+    subject4 = db.Column(db.Integer)
+    subject5 = db.Column(db.Integer)
+    subject6 = db.Column(db.Integer)
+    subject7 = db.Column(db.Integer)
+    subject8 = db.Column(db.Integer)
+    subject9 = db.Column(db.Integer)
+    subject10 = db.Column(db.Integer)
+    total_semester = db.Column(db.Float)
+
+    def __init__(self, user, subject_marks, semester):
+        self.user_id = user
+        self.semester = semester
+        #How to assign makrs to subjects using loop? Give some idea.
+
+
+
+
 
 class ApplicationRequests(db.Model):
     __tablename__ = "Requests"
