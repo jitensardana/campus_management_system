@@ -85,22 +85,32 @@ class Result(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
     semester = db.Column(db.Integer, nullable=False)
-    subject1 = db.Column(db.Integer)
-    subject2 = db.Column(db.Integer)
-    subject3 = db.Column(db.Integer)
-    subject4 = db.Column(db.Integer)
-    subject5 = db.Column(db.Integer)
-    subject6 = db.Column(db.Integer)
-    subject7 = db.Column(db.Integer)
-    subject8 = db.Column(db.Integer)
-    subject9 = db.Column(db.Integer)
-    subject10 = db.Column(db.Integer)
-    total_semester = db.Column(db.Float)
+    marks = db.Column(db.String, nullable=False)
+    total = db.Column(db.Float)
 
-    def __init__(self, user, subject_marks, semester):
+    def __init__(self, user, marks, semester):
         self.user_id = user
         self.semester = semester
-        #How to assign makrs to subjects using loop? Give some idea.
+        self.marks = marks
+        for x in self.marks.split(','):
+            self.total += x
+
+        self.total /= len(self.marks.split(','))
+
+
+    def get_json(self):
+        return {
+            'id' : self.id,
+            'user_id' : self.user_id,
+            'marks' : self.marks,
+            'total' : self.total,
+            'semester': self.semester
+        }
+
+
+    def __repr__(self):
+        return 'Result id: '+self.id+"\nSemester: "+self.semester+"\nMarks: "+self.marks+"\nTotal :"+self.total
+
 
 
 
