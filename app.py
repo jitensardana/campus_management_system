@@ -152,10 +152,10 @@ def insert_result(semester): # insert the result present in semester.txt file in
     f.close()
 
 
-def generate_random_result(semester): #generates random result for 100 users and saves it in semester.txt file
+def generate_random_result(semester, num): #generates random result for 100 users and saves it in semester.txt file
     f = open(semester+".txt" , 'w+')
 
-    for user in range(1, 4):
+    for user in range(1, num):
         f.write("%d," % user)
         for number in range(1,10):
             rand = random.randint(1, 101)
@@ -166,9 +166,9 @@ def generate_random_result(semester): #generates random result for 100 users and
     f.close()
 
 
-def create_random_result(semesters):
+def create_random_result(semesters, num):
     for i in range(1,semesters+1):
-        generate_random_result(str(i))
+        generate_random_result(str(i), num)
         insert_result(str(i))
 
 
@@ -667,7 +667,10 @@ if __name__ == '__main__':
     for notice in Notice.query.all():
         print(notice)
 
-    #create_random_result(3) # number of semesters for which the random result has to be created
+    '''
+    Remove the comment in next line after creating users to generate and insert result.
+    '''
+    #create_random_result(3, 3) # number of semesters for which the random result has to be created
     for result in Result.query.all():
         print(result)
     port = int(os.environ.get("PORT", 5000))
@@ -678,7 +681,7 @@ if __name__ == '__main__':
 curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek","password":"vivek","email":"vivek","user_access_level":"1"}' http://0.0.0.0:5000/api/students/create_users
 
 
-curl -i -X POST -H "Content-Type: application/json" -d '{"username":"jiten","password":"jiten803","email":"jitensardana@gmail.com","branch":"ece","user_access_level":"4"}' http://0.0.0.0:5000/api/students/create_users
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"jiten","password":"jiten803","email":"jitensardana@gmail.com","branch":"EC","user_access_level":"4"}' http://0.0.0.0:5000/api/students/create_users
 
 
 view notices : curl -u miguel:python -i -X GET -H "Content-Type: application/json" -d '{"branch":"EC"}' http://0.0.0.0:5000/api/notice/view_notices
@@ -694,4 +697,14 @@ view request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/j
 
 view result : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/results/view_result
 
+Before inserting the result create users otherwise the code will throw error.
+For creating users comment out line 673
+
+After creating users remove the comment to insert result
+create_random_result(num_of_semesters, num_of_users) Argument description for the create_random_result function
+num_of_semesters: number of semester for which you want to create result
+num_of_users: This should be equal to number of users created by you before removing the comment in line 673.
+
+
+Branch codes naming conventions : Can create 3 branches. Use only two letters.
 """
