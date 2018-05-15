@@ -2,8 +2,9 @@ from flask import Flask, request, jsonify, abort, g, Response
 from flask_httpauth import HTTPBasicAuth
 from flask_sqlalchemy import SQLAlchemy
 from passlib.apps import custom_app_context as pwd_context
-import os
+import os, random
 import datetime
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
@@ -85,17 +86,19 @@ class Result(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
     semester = db.Column(db.Integer, nullable=False)
-    marks = db.Column(db.String, nullable=False)
+    marks = db.Column(db.String(250), nullable=False)
     total = db.Column(db.Float)
 
     def __init__(self, user, marks, semester):
         self.user_id = user
         self.semester = semester
         self.marks = marks
+        temp = 0
         for x in self.marks.split(','):
-            self.total += x
+            temp += float(x)
 
-        self.total /= len(self.marks.split(','))
+
+        self.total = temp/len(self.marks.split(','))
 
 
     def get_json(self):
@@ -109,11 +112,47 @@ class Result(db.Model):
 
 
     def __repr__(self):
-        return 'Result id: '+self.id+"\nSemester: "+self.semester+"\nMarks: "+self.marks+"\nTotal :"+self.total
+        return "Result id: "+str(self.id)+"\nUser id: "+str(self.user_id)+"\nSemester: "+str(self.semester)+"\nMarks: "+self.marks+"\nTotal :"+str(self.total)+"\n"
 
 
 
 
+def insert_result(semester):
+    f = open(semester+".txt", "r")
+
+    user_id = ''
+    for line in f:
+        x = line.split(',')
+        user_id = x[0]
+        marks = ''
+        for i in range(1, len(x)-1):
+            marks += x[i]+','
+        marks += x[len(x)-1]
+        result = Result(user_id, marks, semester)
+        try:
+            db.session.add(result)
+            db.session.commit()
+            print(result)
+        except Exception as e:
+            print("Failed to insert result")
+            f.close()
+            return
+
+    f.close()
+
+
+def generate_random_result(semester):
+    f = open(semester+".txt" , 'w+')
+
+    for user in range(1, 101):
+        f.write("%d," % user)
+        for number in range(1,10):
+            rand = random.randint(1, 101)
+            f.write("%d," % rand)
+        rand = random.randint(1,101)
+        f.write("%d\n" % rand)
+
+    f.close()
 
 
 class ApplicationRequests(db.Model):
@@ -566,6 +605,11 @@ if __name__ == '__main__':
         print(user)
     for notice in Notice.query.all():
         print(notice)
+
+    generate_random_result("1")
+    insert_result("1")
+    for result in Result.query.all():
+        print(result)
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
 
