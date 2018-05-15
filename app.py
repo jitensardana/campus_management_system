@@ -122,16 +122,16 @@ class Result(db.Model):
 
 def insert_result(semester): # insert the result present in semester.txt file in the database
     f = open(semester+".txt", "r")
-    codes = open("EC", 'r')
-    lines = codes.readlines()
-    curr_sem_codes = lines[int(semester)-1].split("\n")[0]
-    codes.close()
-
     user_id = ''
     for line in f:
         line = line.split("\n")[0]
         x = line.split(',')
         user_id = x[0]
+        branch = User.query.filter_by(id = user_id).first().branch
+        codes = open(branch, 'r')
+        lines = codes.readlines()
+        curr_sem_codes = lines[int(semester)-1].split("\n")[0]
+        codes.close()
         marks = ''
         for i in range(1, len(x)-1):
             marks += x[i]+','
@@ -155,7 +155,7 @@ def insert_result(semester): # insert the result present in semester.txt file in
 def generate_random_result(semester): #generates random result for 100 users and saves it in semester.txt file
     f = open(semester+".txt" , 'w+')
 
-    for user in range(1, 101):
+    for user in range(1, 4):
         f.write("%d," % user)
         for number in range(1,10):
             rand = random.randint(1, 101)
@@ -667,7 +667,7 @@ if __name__ == '__main__':
     for notice in Notice.query.all():
         print(notice)
 
-    create_random_result(3) # number of semesters for which the random result has to be created
+    #create_random_result(3) # number of semesters for which the random result has to be created
     for result in Result.query.all():
         print(result)
     port = int(os.environ.get("PORT", 5000))
