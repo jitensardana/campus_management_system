@@ -87,12 +87,14 @@ class Result(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
     semester = db.Column(db.Integer, nullable=False)
     marks = db.Column(db.String(250), nullable=False)
+    subjects = db.Column(db.String(500), nullable=False)
     total = db.Column(db.Float)
 
-    def __init__(self, user, marks, semester):
+    def __init__(self, user, marks, semester,subjects):
         self.user_id = user
         self.semester = semester
         self.marks = marks
+        self.subjects = subjects
         temp = 0
         for x in self.marks.split(','):
             temp += float(x)
@@ -106,19 +108,25 @@ class Result(db.Model):
             'id' : self.id,
             'user_id' : self.user_id,
             'marks' : self.marks,
+            'subjects': self.subjects,
             'total' : self.total,
             'semester': self.semester
         }
 
 
     def __repr__(self):
-        return "Result id: "+str(self.id)+"\nUser id: "+str(self.user_id)+"\nSemester: "+str(self.semester)+"\nMarks: "+self.marks+"\nTotal :"+str(self.total)+"\n"
+        return "Result id: "+str(self.id)+"\nUser id: "+str(self.user_id)+"\nSemester: "+str(self.semester)+"\nMarks: "+self.marks+"\nSubjects: "+self.subjects+"\nTotal :"+str(self.total)+"\n"
 
 
 
 
 def insert_result(semester): # insert the result present in semester.txt file in the database
     f = open(semester+".txt", "r")
+    codes = open("EC", 'r')
+    lines = codes.readlines()
+    curr_sem_codes = lines[int(semester)-1].split("\n")[0]
+    codes.close()
+
     user_id = ''
     for line in f:
         line = line.split("\n")[0]
@@ -128,7 +136,7 @@ def insert_result(semester): # insert the result present in semester.txt file in
         for i in range(1, len(x)-1):
             marks += x[i]+','
         marks += x[len(x)-1]
-        result = Result(user_id, marks, semester)
+        result = Result(user_id, marks, semester, curr_sem_codes)
         already_present = Result.query.filter_by(user_id=user_id, semester= semester).first()
         if already_present is not None:  # will not insert the result if the result for a user for a particular semester is already present
             continue
@@ -591,7 +599,7 @@ def update_profile():
         [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
     not_valid_email = valid_email(email)  # TODO : write function using regex
 
-    if not_valid_url == False and not_valid_email == False:
+    if not_valid_url is False and not_valid_email is False:
         try:
             if id_card_url is not None:
                 user.id_card_url = id_card_url
