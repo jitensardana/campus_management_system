@@ -121,6 +121,7 @@ def insert_result(semester): # insert the result present in semester.txt file in
     f = open(semester+".txt", "r")
     user_id = ''
     for line in f:
+        line = line.split("\n")[0]
         x = line.split(',')
         user_id = x[0]
         marks = ''
@@ -164,7 +165,7 @@ def create_random_result(semesters):
 
 
 
-@app.route('/api/results/view_result')
+@app.route('/api/results/view_result',methods=['POST'])
 @auth.login_required
 def view_result():
     user = g.user
@@ -682,5 +683,7 @@ create request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application
 
 
 view request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/requests/view_request
+
+view result : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/results/view_result
 
 """
