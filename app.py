@@ -157,6 +157,49 @@ def generate_random_result(semester): #generates random result for 100 users and
     f.close()
 
 
+def create_random_result(semesters):
+    for i in range(1,semesters+1):
+        generate_random_result(str(i))
+        insert_result(str(i))
+
+
+
+@app.route('/api/results/view_result')
+@auth.login_required
+def view_result():
+    user = g.user
+
+    try:
+        results = Result.query.filter_by(user_id = user.id)
+        new_results = []
+
+        try:
+            for result in results:
+                new_result = result.get_json()
+                new_results.append(new_result)
+
+            sorted(new_results, key=lambda new_result: new_result['semester'])
+
+            return jsonify({
+                'code': 200,
+                'results': new_results
+            })
+
+        except Exception as e:
+            return jsonify({
+                'code':500,
+                'content': 'Unable to process your request',
+                'exception': e.__str__()
+            })
+
+    except Exception as e:
+        return jsonify({
+            'code':403,
+            'content':"Unable to access database",
+            'exception': e.__str__()
+        })
+
+
 class ApplicationRequests(db.Model):
     __tablename__ = "Requests"
     id = db.Column(db.Integer, primary_key=True)
@@ -185,6 +228,17 @@ class ApplicationRequests(db.Model):
 
         self.title = title
         self.content = content
+
+    def get_json(self):
+        return {
+                        'id' : self.id,
+                        'type': self.request_type,
+                        'title': self.title,
+                        'content': self.content,
+                        'state': self.state,
+                        'time_modified': self.time_modified,
+                        'reqeust_from' : User.query.filter_by(id=self.request_from).first().get_json()
+               }
 
 
     def __repr__(self):
@@ -251,15 +305,7 @@ def view_request():
                 new_requests = []
 
                 for request_ in requests:
-                    new_request = {
-                        'id' : request_.id,
-                        'type': request_.request_type,
-                        'title': request_.title,
-                        'content': request_.content,
-                        'state': request_.state,
-                        'time_modified': request_.time_modified,
-                        'reqeust_from' : User.query.filter_by(id=request_.request_from).first().get_json()
-                    }
+                    new_request = request_.get_json()
                     new_requests.append(new_request)
 
                 sorted(new_requests, key=lambda new_request: new_request['time_modified'], reverse=True)
@@ -540,7 +586,6 @@ def update_profile():
     email = request.json.get('email')
 
 
-
     not_valid_url = valid_urls(
         [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
     not_valid_email = valid_email(email)  # TODO : write function using regex
@@ -613,8 +658,7 @@ if __name__ == '__main__':
     for notice in Notice.query.all():
         print(notice)
 
-    generate_random_result("2") # change the argument to generate a different semester result
-    insert_result("2") # change the argument to insert a different semester result
+    create_random_result(3) # number of semesters for which the random result has to be created
     for result in Result.query.all():
         print(result)
     port = int(os.environ.get("PORT", 5000))
