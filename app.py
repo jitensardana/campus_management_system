@@ -117,9 +117,8 @@ class Result(db.Model):
 
 
 
-def insert_result(semester):
+def insert_result(semester): # insert the result present in semester.txt file in the database
     f = open(semester+".txt", "r")
-
     user_id = ''
     for line in f:
         x = line.split(',')
@@ -129,6 +128,9 @@ def insert_result(semester):
             marks += x[i]+','
         marks += x[len(x)-1]
         result = Result(user_id, marks, semester)
+        already_present = Result.query.filter_by(user_id=user_id, semester= semester).first()
+        if already_present is not None:  # will not insert the result if the result for a user for a particular semester is already present
+            continue
         try:
             db.session.add(result)
             db.session.commit()
@@ -141,7 +143,7 @@ def insert_result(semester):
     f.close()
 
 
-def generate_random_result(semester):
+def generate_random_result(semester): #generates random result for 100 users and saves it in semester.txt file
     f = open(semester+".txt" , 'w+')
 
     for user in range(1, 101):
@@ -536,8 +538,8 @@ def update_profile():
     hostel_id_card_url = request.json.get('hostel_id_card_url')
     aadhar_card_url = request.json.get('aadhar_card_url')
     email = request.json.get('email')
-    password = request.json.get('password')
-    hash = pwd_context.encrypt(password)
+
+
 
     not_valid_url = valid_urls(
         [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
@@ -545,12 +547,17 @@ def update_profile():
 
     if not_valid_url == False and not_valid_email == False:
         try:
-            user.id_card_url = id_card_url
-            user.lib_card_url = lib_card_url
-            user.hostel_id_card_url = hostel_id_card_url
-            user.aadhar_card_url = aadhar_card_url
-            user.email = email
-            user.password_hash = hash
+            if id_card_url is not None:
+                user.id_card_url = id_card_url
+            if lib_card_url is not None:
+                user.lib_card_url = lib_card_url
+            if hostel_id_card_url is not None:
+                user.hostel_id_card_url = hostel_id_card_url
+            if aadhar_card_url is not None:
+                user.aadhar_card_url = aadhar_card_url
+            if email is not None:
+                user.email = email
+
             db.session.commit()
         except Exception as e:
             abort(Response(jsonify({
@@ -606,8 +613,8 @@ if __name__ == '__main__':
     for notice in Notice.query.all():
         print(notice)
 
-    generate_random_result("1")
-    insert_result("1")
+    generate_random_result("2") # change the argument to generate a different semester result
+    insert_result("2") # change the argument to insert a different semester result
     for result in Result.query.all():
         print(result)
     port = int(os.environ.get("PORT", 5000))
