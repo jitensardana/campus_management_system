@@ -325,10 +325,27 @@ def view_request():
                 })
 
         else:
-            return jsonify({
-                'code': 400,
-                'content': 'Permission denied'
-            })
+            try:
+                requests = ApplicationRequests.query.filter_by(request_from=curr_user.id)
+                new_requests = []
+
+                for request_ in requests:
+                    new_request = request_.get_json()
+                    new_requests.append(new_request)
+
+                sorted(new_requests, key = lambda new_request: new_request['time_modified'], reverse=True)
+
+                return jsonify({
+                    'code': 200,
+                    'requests': new_requests
+                })
+            except Exception as e:
+                return jsonify({
+                    'code': 400,
+                    'content': 'Unable to fetch requests',
+                    'exception': e.__str__()
+                })
+
     except Exception as e:
         return jsonify({
             'code': 400,
