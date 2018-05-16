@@ -5,7 +5,6 @@ from passlib.apps import custom_app_context as pwd_context
 import os, random
 import datetime
 
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
@@ -81,6 +80,7 @@ class Notice(db.Model):
     def __repr__(self):
         return "Title: " + self.title + "\nContent: " + self.content + "\nCreated By: " + str(self.created_by) + "\n"
 
+
 class Result(db.Model):
     __tablename__ = "Result"
     id = db.Column(db.Integer, primary_key=True)
@@ -90,7 +90,7 @@ class Result(db.Model):
     subjects = db.Column(db.String(500), nullable=False)
     total = db.Column(db.Float)
 
-    def __init__(self, user, marks, semester,subjects):
+    def __init__(self, user, marks, semester, subjects):
         self.user_id = user
         self.semester = semester
         self.marks = marks
@@ -99,45 +99,42 @@ class Result(db.Model):
         for x in self.marks.split(','):
             temp += float(x)
 
-
-        self.total = temp/len(self.marks.split(','))
-
+        self.total = temp / len(self.marks.split(','))
 
     def get_json(self):
         return {
-            'id' : self.id,
-            'user_id' : self.user_id,
-            'marks' : self.marks,
+            'id': self.id,
+            'user_id': self.user_id,
+            'marks': self.marks,
             'subjects': self.subjects,
-            'total' : self.total,
+            'total': self.total,
             'semester': self.semester
         }
 
-
     def __repr__(self):
-        return "Result id: "+str(self.id)+"\nUser id: "+str(self.user_id)+"\nSemester: "+str(self.semester)+"\nMarks: "+self.marks+"\nSubjects: "+self.subjects+"\nTotal :"+str(self.total)+"\n"
+        return "Result id: " + str(self.id) + "\nUser id: " + str(self.user_id) + "\nSemester: " + str(
+            self.semester) + "\nMarks: " + self.marks + "\nSubjects: " + self.subjects + "\nTotal :" + str(
+            self.total) + "\n"
 
 
-
-
-def insert_result(semester): # insert the result present in semester.txt file in the database
-    f = open(semester+".txt", "r")
+def insert_result(semester):  # insert the result present in semester.txt file in the database
+    f = open(semester + ".txt", "r")
     user_id = ''
     for line in f:
         line = line.split("\n")[0]
         x = line.split(',')
         user_id = x[0]
-        branch = User.query.filter_by(id = user_id).first().branch
+        branch = User.query.filter_by(id=user_id).first().branch
         codes = open(branch, 'r')
         lines = codes.readlines()
-        curr_sem_codes = lines[int(semester)-1].split("\n")[0]
+        curr_sem_codes = lines[int(semester) - 1].split("\n")[0]
         codes.close()
         marks = ''
-        for i in range(1, len(x)-1):
-            marks += x[i]+','
-        marks += x[len(x)-1]
+        for i in range(1, len(x) - 1):
+            marks += x[i] + ','
+        marks += x[len(x) - 1]
         result = Result(user_id, marks, semester, curr_sem_codes)
-        already_present = Result.query.filter_by(user_id=user_id, semester= semester).first()
+        already_present = Result.query.filter_by(user_id=user_id, semester=semester).first()
         if already_present is not None:  # will not insert the result if the result for a user for a particular semester is already present
             continue
         try:
@@ -152,34 +149,33 @@ def insert_result(semester): # insert the result present in semester.txt file in
     f.close()
 
 
-def generate_random_result(semester, num): #generates random result for 100 users and saves it in semester.txt file
-    f = open(semester+".txt" , 'w+')
+def generate_random_result(semester, num):  # generates random result for 100 users and saves it in semester.txt file
+    f = open(semester + ".txt", 'w+')
 
     for user in range(1, num):
         f.write("%d," % user)
-        for number in range(1,10):
+        for number in range(1, 10):
             rand = random.randint(1, 101)
             f.write("%d," % rand)
-        rand = random.randint(1,101)
+        rand = random.randint(1, 101)
         f.write("%d\n" % rand)
 
     f.close()
 
 
 def create_random_result(semesters, num):
-    for i in range(1,semesters+1):
+    for i in range(1, semesters + 1):
         generate_random_result(str(i), num)
         insert_result(str(i))
 
 
-
-@app.route('/api/results/view_result',methods=['POST'])
+@app.route('/api/results/view_result', methods=['POST'])
 @auth.login_required
 def view_result():
     user = g.user
 
     try:
-        results = Result.query.filter_by(user_id = user.id)
+        results = Result.query.filter_by(user_id=user.id)
         new_results = []
 
         try:
@@ -196,15 +192,15 @@ def view_result():
 
         except Exception as e:
             return jsonify({
-                'code':500,
+                'code': 500,
                 'content': 'Unable to process your request',
                 'exception': e.__str__()
             })
 
     except Exception as e:
         return jsonify({
-            'code':403,
-            'content':"Unable to access database",
+            'code': 403,
+            'content': "Unable to access database",
             'exception': e.__str__()
         })
 
@@ -217,7 +213,7 @@ class ApplicationRequests(db.Model):
     time_created = db.Column(db.DateTime, default=datetime.datetime.now(), nullable=False)
     time_modified = db.Column(db.DateTime, default=datetime.datetime.now(), nullable=False)
     time_completed = db.Column(db.DateTime)
-    state = db.Column(db.Integer, default=0) # 0: Received, 1:Read, 3: Processing 4: Rejected, 5:Completed
+    state = db.Column(db.Integer, default=0)  # 0: Received, 1:Read, 3: Processing 4: Rejected, 5:Completed
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.String(1000))
     access_level = db.Column(db.Integer, nullable=False)
@@ -226,11 +222,11 @@ class ApplicationRequests(db.Model):
     def __init__(self, request_from, request_type, title, content):
         self.request_from = request_from
         self.request_type = request_type
-        if request_type == 4: #Department request
+        if request_type == 4:  # Department request
             self.access_level = 4
-        elif request_type == 2: #coe
+        elif request_type == 2:  # coe
             self.access_level = 2
-        elif request_type == 3 : #admin
+        elif request_type == 3:  # admin
             self.access_level = 3
         else:
             self.access_level = 4
@@ -240,18 +236,17 @@ class ApplicationRequests(db.Model):
 
     def get_json(self):
         return {
-                        'id' : self.id,
-                        'type': self.request_type,
-                        'title': self.title,
-                        'content': self.content,
-                        'state': self.state,
-                        'time_modified': self.time_modified,
-                        'reqeust_from' : User.query.filter_by(id=self.request_from).first().get_json()
-               }
-
+            'id': self.id,
+            'request_type': self.request_type,
+            'title': self.title,
+            'content': self.content,
+            'state': self.state,
+            'time_modified': self.time_modified,
+            'request_from': User.query.filter_by(id=self.request_from).first().get_json()
+        }
 
     def __repr__(self):
-        return "Request id: "+self.request_id+"\nTitle: "+self.title+"\nRequest from: "+self.request_from+"\nRequest type: "+self.request_type+"\n"
+        return "Request id: " + self.request_id + "\nTitle: " + self.title + "\nRequest from: " + self.request_from + "\nRequest type: " + self.request_type + "\n"
 
 
 @app.route('/api/requests/create_request', methods=['POST'])
@@ -266,7 +261,7 @@ def create_request():
 
         if title is None or request_type is None or request_from is None:
             return jsonify({
-                'code':400,
+                'code': 400,
                 'content': 'Bad Request',
                 'exception': 'Data is null'
             })
@@ -276,27 +271,26 @@ def create_request():
                 db.session.add(new_request)
                 db.session.commit()
                 return jsonify({
-                    'code':200,
+                    'code': 200,
                     'content': 'Request created successfully'
                 })
             except Exception as e:
                 return jsonify({
-                    'code':503,
+                    'code': 503,
                     'content': 'Internal server error',
                     'exception': e.__str__()
                 })
 
         except Exception as e:
             return jsonify({
-                'code':400,
-                'content':'Unable to create request',
+                'code': 400,
+                'content': 'Unable to create request',
                 'exception': e.__str__()
             })
 
-
     except Exception as e:
         return jsonify({
-            'code':400,
+            'code': 400,
             'content': 'Bad Request',
             'exception': e.__str__()
         })
@@ -325,19 +319,19 @@ def view_request():
                 })
             except Exception as e:
                 return jsonify({
-                    'code':400,
+                    'code': 400,
                     'content': 'Unable to fetch requests',
                     'exception': e.__str__()
                 })
 
         else:
             return jsonify({
-                'code':400,
+                'code': 400,
                 'content': 'Permission denied'
             })
     except Exception as e:
         return jsonify({
-            'code':400,
+            'code': 400,
             'content': 'Unable to view requests',
             'exception': e.__str__()
         })
@@ -355,7 +349,7 @@ def update_request():
 
         if request_id is None or request_title is None or request_content is None or request_type is None:
             return jsonify({
-                'code':400,
+                'code': 400,
                 'content': 'Some fields are empty'
             })
 
@@ -392,7 +386,7 @@ def update_request():
 
     except Exception as e:
         return jsonify({
-            'code':400,
+            'code': 400,
             'content': 'Bad Request'
         })
 
@@ -594,7 +588,6 @@ def update_profile():
     aadhar_card_url = request.json.get('aadhar_card_url')
     email = request.json.get('email')
 
-
     not_valid_url = valid_urls(
         [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
     not_valid_email = valid_email(email)  # TODO : write function using regex
@@ -670,12 +663,11 @@ if __name__ == '__main__':
     '''
     Remove the comment in next line after creating users to generate and insert result.
     '''
-    #create_random_result(3, 3) # number of semesters for which the random result has to be created
+    # create_random_result(3, 3) # number of semesters for which the random result has to be created
     for result in Result.query.all():
         print(result)
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
 
 """
 curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek","password":"vivek","email":"vivek","user_access_level":"1"}' http://0.0.0.0:5000/api/students/create_users
