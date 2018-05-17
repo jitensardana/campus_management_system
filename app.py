@@ -15,6 +15,7 @@ auth = HTTPBasicAuth()
 class User(db.Model):
     __tablename__ = 'Users'
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
@@ -32,13 +33,15 @@ class User(db.Model):
 
     # 1 for student, 2 for COE department, 3 for admin, 4 for branch department, 5 HOD
 
-    def __init__(self, username, password, email, user_access_level=1):
+    def __init__(self, username, password, email, name, rollno, user_access_level=1):
         self.username = username
         self.password_hash = pwd_context.hash(password)
         self.email = email
         if user_access_level > 5 or user_access_level < 1:
             user_access_level = 1
         self.user_access_level = user_access_level
+        self.name = name
+        self.roll_number = rollno
 
     def verify_password(self, password):
         return pwd_context.verify(password, self.password_hash)
@@ -46,6 +49,7 @@ class User(db.Model):
     def get_json(self):
         return {
             'username': self.username,
+            'name': self.name,
             'email': self.email,
             'roll_number': self.roll_number,
             'branch': self.branch,
@@ -82,13 +86,13 @@ class Notice(db.Model):
 
     def get_json(self):
         return {
-                'id': self.id,
-                'title': self.title,
-                'content': self.content,
-                'branch': self.branch,
-                'attachment_url': self.attachment_url,
-                'date_time': self.date_created,
-            }
+            'id': self.id,
+            'title': self.title,
+            'content': self.content,
+            'branch': self.branch,
+            'attachment_url': self.attachment_url,
+            'date_time': self.date_created,
+        }
 
     def __repr__(self):
         return "Title: " + self.title + "\nContent: " + self.content + "\nCreated By: " + str(self.created_by) + "\n"
@@ -451,14 +455,14 @@ def create_notice():
             print(branch)
             print(content)
 
-
             if title is None or branch is None or content is None:
                 return jsonify({
                     'code': 400,
                     'content': 'All the fields are required'
                 })
 
-            new_notice = Notice(title=title, content=content, branch=branch, user=user_current, attachment_url=attachment_url)
+            new_notice = Notice(title=title, content=content, branch=branch, user=user_current,
+                                attachment_url=attachment_url)
             try:
                 db.session.add(new_notice)
                 db.session.commit()
@@ -601,16 +605,19 @@ def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
     email = request.json.get('email')
+    name = request.json.get('name')
+    roll_number = request.json.get('roll_number')
     user_access_level = int(request.json.get('user_access_level'))
     branch = request.json.get('branch')
 
-    if username is None or password is None or user_access_level > 5 or user_access_level < 1:
+    if username is None or password is None or name is None or branch is None or email is None or user_access_level > 5 or user_access_level < 1:
         abort(400)
     if User.query.filter_by(username=username).first() is not None:
         g.user = User.query.filter_by(username=username).first()
         return
 
-    user = User(username=username, password=password, email=email, user_access_level=user_access_level)
+    user = User(username=username, password=password, email=email, user_access_level=user_access_level, name=name,
+                rollno=roll_number)
     if branch is not None:
         user.branch = branch
     db.session.add(user)
@@ -678,6 +685,7 @@ def update_profile():
     hostel_id_card_url = request.json.get('hostel_id_card_url')
     aadhar_card_url = request.json.get('aadhar_card_url')
     email = request.json.get('email')
+    name = request.json.get('name')
 
     not_valid_url = valid_urls(
         [id_card_url, lib_card_url, hostel_id_card_url, aadhar_card_url])  # TODO : write function using regex
@@ -699,6 +707,9 @@ def update_profile():
                 print(aadhar_card_url + "\n")
             if email is not None:
                 user.email = email
+            if name is not None:
+                user.name = name
+
 
             db.session.commit()
             return jsonify({
