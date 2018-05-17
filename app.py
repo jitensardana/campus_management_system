@@ -333,7 +333,7 @@ def view_request():
                     new_request = request_.get_json()
                     new_requests.append(new_request)
 
-                sorted(new_requests, key = lambda newrequest: newrequest['time_modified'], reverse=True)
+                sorted(new_requests, key=lambda newrequest: newrequest['time_modified'], reverse=True)
 
                 return jsonify({
                     'code': 200,
@@ -406,6 +406,9 @@ def update_request():
             'code': 400,
             'content': 'Bad Request'
         })
+
+def process_request():
+    pass
 
 
 @app.route('/api/notice/create_notice', methods=['POST'])
@@ -614,11 +617,11 @@ def change_password():
             'content': 'Passwords are not same'
         })
 
-    #old_password_hash = pwd_context.encrypt(old_password)
+    # old_password_hash = pwd_context.encrypt(old_password)
     new_password_hash = pwd_context.encrypt(new_password)
     curr_user = g.user
-    #print (old_password_hash+"\n")
-    #print (curr_user.password_hash)
+    # print (old_password_hash+"\n")
+    # print (curr_user.password_hash)
     if not curr_user.verify_password(old_password):
         return jsonify({
             'code': 400,
@@ -661,29 +664,34 @@ def update_profile():
         try:
             if id_card_url is not None:
                 user.id_card_url = id_card_url
+                print(id_card_url+"\n")
             if lib_card_url is not None:
                 user.lib_card_url = lib_card_url
+                print(lib_card_url+"\n")
             if hostel_id_card_url is not None:
                 user.hostel_id_card_url = hostel_id_card_url
+                print(hostel_id_card_url+"\n")
             if aadhar_card_url is not None:
                 user.aadhar_card_url = aadhar_card_url
+                print(aadhar_card_url+"\n")
             if email is not None:
                 user.email = email
 
             db.session.commit()
+            return jsonify({
+                'code': 200,
+                'content': '%s data changed successfully' % user.username
+            })
         except Exception as e:
-            abort(Response(jsonify({
-                'content': 'Unsuccessful in changing data'
-            })))
+            return jsonify({
+                'code': 400,
+                'content': 'Unsuccessful in updating profile'
+            })
     else:
-        abort(Response(jsonify({
-            'content': 'Wrong information'
-        })))
-
-    ## check which data is received to update and update in db
-    return jsonify({
-        'content': '%s data changed successfully' % user.username
-    })
+        return jsonify({
+            'code': 400,
+            'content': 'Wrong information entered'
+        })
 
 
 def valid_email(email):
@@ -714,6 +722,8 @@ def login():
     return jsonify(g.user.get_json())
 
 
+
+
 # creating dummy user
 db.create_all()
 
@@ -735,8 +745,13 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)
 
 """
-curl -i -X POST -H "Content-Type: application/json" -d '{"username":"vivek","password":"vivek","email":"vivek","user_access_level":"1"}' http://0.0.0.0:5000/api/students/create_users
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"priya","password":"priya","email":"priya","user_access_level":"1","branch":"EC"}' http://0.0.0.0:5000/api/students/create_users
 
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin","email":"admin","user_access_level":"3","branch":"admin"}' http://0.0.0.0:5000/api/students/create_users
+
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"branch","password":"branch","email":"branch","user_access_level":"4","branch":"EC"}' http://0.0.0.0:5000/api/students/create_users
+
+curl -i -X POST -H "Content-Type: application/json" -d '{"username":"coe","password":"coe","email":"coe","user_access_level":"2","branch":"COE"}' http://0.0.0.0:5000/api/students/create_users
 
 curl -i -X POST -H "Content-Type: application/json" -d '{"username":"jiten","password":"jiten803","email":"jitensardana@gmail.com","branch":"EC","user_access_level":"4"}' http://0.0.0.0:5000/api/students/create_users
 
