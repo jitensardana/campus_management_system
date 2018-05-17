@@ -71,11 +71,24 @@ class Notice(db.Model):
     date_modified = db.Column(db.DateTime, default=datetime.datetime.now())
     attachment_url = db.Column(db.String(250))
 
-    def __init__(self, title, content, branch, user):
+    def __init__(self, title, content, branch, user, attachment_url):
         self.title = title
         self.content = content
         self.branch = branch
         self.created_by = user.id
+        if attachment_url is None:
+            attachment_url = 'Attachment is not present'
+        self.attachment_url = attachment_url
+
+    def get_json(self):
+        return {
+                'id': self.id,
+                'title': self.title,
+                'content': self.content,
+                'branch': self.branch,
+                'attachment_url': self.attachment_url,
+                'date_time': self.date_created,
+            }
 
     def __repr__(self):
         return "Title: " + self.title + "\nContent: " + self.content + "\nCreated By: " + str(self.created_by) + "\n"
@@ -163,7 +176,9 @@ def generate_random_result(semester, num):  # generates random result for 100 us
     f.close()
 
 
-def create_random_result(semesters, num):
+@app.route('/api/results/create_random_result', methods=['POST'])
+@auth.login_required
+def create_random_result(semesters=8, num=10):
     for i in range(1, semesters + 1):
         generate_random_result(str(i), num)
         insert_result(str(i))
@@ -219,7 +234,7 @@ class ApplicationRequests(db.Model):
     access_level = db.Column(db.Integer, nullable=False)
     attachment_url = db.Column(db.String(250))
 
-    def __init__(self, request_from, request_type, title, content):
+    def __init__(self, request_from, request_type, title, content, attachment_url):
         self.request_from = request_from
         self.request_type = request_type
         if request_type == 4:  # Department request
@@ -233,6 +248,9 @@ class ApplicationRequests(db.Model):
 
         self.title = title
         self.content = content
+        if attachment_url is None:
+            attachment_url = 'Attachment is not present'
+        self.attachment_url = attachment_url
 
     def get_json(self):
         return {
@@ -242,7 +260,8 @@ class ApplicationRequests(db.Model):
             'content': self.content,
             'state': self.state,
             'time_modified': self.time_modified,
-            'request_from': User.query.filter_by(id=self.request_from).first().get_json()
+            'request_from': User.query.filter_by(id=self.request_from).first().get_json(),
+            'attachment_url': self.attachment_url
         }
 
     def __repr__(self):
@@ -258,6 +277,7 @@ def create_request():
         content = request.json.get('content')
         request_type = request.json.get('request_type')
         request_from = curr_user.id
+        attachment_url = request.json.get('attachment_url')
 
         if title is None or request_type is None or request_from is None:
             return jsonify({
@@ -266,7 +286,7 @@ def create_request():
                 'exception': 'Data is null'
             })
         try:
-            new_request = ApplicationRequests(request_from, request_type, title, content)
+            new_request = ApplicationRequests(request_from, request_type, title, content, attachment_url)
             try:
                 db.session.add(new_request)
                 db.session.commit()
@@ -363,6 +383,7 @@ def update_request():
         request_title = request.json.get('title')
         request_content = request.json.get('content')
         request_type = request.json.get('type')
+        request_attachment_url = request.json.get('attachment_url')
 
         if request_id is None or request_title is None or request_content is None or request_type is None:
             return jsonify({
@@ -378,6 +399,9 @@ def update_request():
                     curr_request.content = request_content
                     curr_request.request_type = request_type
                     curr_request.time_modified = datetime.datetime.now()
+                    if request_attachment_url is not None:
+                        curr_request.attachment_url = request_attachment_url
+
                     db.session.commit()
                     return jsonify({
                         'code': 200,
@@ -407,6 +431,7 @@ def update_request():
             'content': 'Bad Request'
         })
 
+
 def process_request():
     pass
 
@@ -420,10 +445,12 @@ def create_notice():
             title = request.json.get('title')
             branch = request.json.get('branch')
             content = request.json.get('content')
+            attachment_url = request.json.get('attachment_url')
 
             print(title)
             print(branch)
             print(content)
+
 
             if title is None or branch is None or content is None:
                 return jsonify({
@@ -431,7 +458,7 @@ def create_notice():
                     'content': 'All the fields are required'
                 })
 
-            new_notice = Notice(title=title, content=content, branch=branch, user=user_current)
+            new_notice = Notice(title=title, content=content, branch=branch, user=user_current, attachment_url=attachment_url)
             try:
                 db.session.add(new_notice)
                 db.session.commit()
@@ -482,14 +509,7 @@ def view_notices():
         new_notices = []
 
         for notice_ in notices:
-            new_notice = {
-                'id': notice_.id,
-                'title': notice_.title,
-                'content': notice_.content,
-                'branch': notice_.branch,
-                'attachment_url': notice_.attachment_url,
-                'date_time': notice_.date_created
-            }
+            new_notice = notice_.get_json()
             # new_notice = [notice_.id, notice_.title, notice_.content, notice_.date_time]
             new_notices.append(new_notice)
         sorted(new_notices, key=lambda new_notice: new_notice['date_time'], reverse=True)
@@ -515,6 +535,7 @@ def update_notice():
             notice_id = request.json.get('id')
             title = request.json.get('title')
             content = request.json.get('content')
+            attachment_url = request.json.get('attachment_url')
 
             if id is None or title is None or content is None:
                 return jsonify({
@@ -533,6 +554,8 @@ def update_notice():
                     })
                 notice.title = title
                 notice.content = content
+                if attachment_url is not None:
+                    notice.attachment_url = attachment_url
                 try:
                     db.session.commit()
                     return jsonify({
@@ -664,16 +687,16 @@ def update_profile():
         try:
             if id_card_url is not None:
                 user.id_card_url = id_card_url
-                print(id_card_url+"\n")
+                print(id_card_url + "\n")
             if lib_card_url is not None:
                 user.lib_card_url = lib_card_url
-                print(lib_card_url+"\n")
+                print(lib_card_url + "\n")
             if hostel_id_card_url is not None:
                 user.hostel_id_card_url = hostel_id_card_url
-                print(hostel_id_card_url+"\n")
+                print(hostel_id_card_url + "\n")
             if aadhar_card_url is not None:
                 user.aadhar_card_url = aadhar_card_url
-                print(aadhar_card_url+"\n")
+                print(aadhar_card_url + "\n")
             if email is not None:
                 user.email = email
 
@@ -720,8 +743,6 @@ def login():
     if g.user is None:
         abort(400)
     return jsonify(g.user.get_json())
-
-
 
 
 # creating dummy user
