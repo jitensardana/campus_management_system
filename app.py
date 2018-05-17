@@ -34,7 +34,7 @@ class User(db.Model):
 
     def __init__(self, username, password, email, user_access_level=1):
         self.username = username
-        self.password_hash = pwd_context.encrypt(password)
+        self.password_hash = pwd_context.hash(password)
         self.email = email
         if user_access_level > 5 or user_access_level < 1:
             user_access_level = 1
@@ -311,7 +311,7 @@ def view_request():
                     new_request = request_.get_json()
                     new_requests.append(new_request)
 
-                sorted(new_requests, key=lambda new_request: new_request['time_modified'], reverse=True)
+                sorted(new_requests, key=lambda newrequest: newrequest['time_modified'], reverse=True)
 
                 return jsonify({
                     'code': 200,
@@ -333,7 +333,7 @@ def view_request():
                     new_request = request_.get_json()
                     new_requests.append(new_request)
 
-                sorted(new_requests, key = lambda new_request: new_request['time_modified'], reverse=True)
+                sorted(new_requests, key = lambda newrequest: newrequest['time_modified'], reverse=True)
 
                 return jsonify({
                     'code': 200,
@@ -595,6 +595,54 @@ def new_user():
     })
 
 
+@app.route('/api/students/change_password', methods=['POST'])
+@auth.login_required
+def change_password():
+    old_password = request.json.get('old_password')
+    new_password = request.json.get('new_password')
+    confirm_password = request.json.get('confirm_password')
+
+    if old_password is None or new_password is None or confirm_password is None:
+        return jsonify({
+            'code': 400,
+            'content': 'Some fields may be blank'
+        })
+
+    if new_password != confirm_password:
+        return jsonify({
+            'code': 400,
+            'content': 'Passwords are not same'
+        })
+
+    #old_password_hash = pwd_context.encrypt(old_password)
+    new_password_hash = pwd_context.encrypt(new_password)
+    curr_user = g.user
+    #print (old_password_hash+"\n")
+    #print (curr_user.password_hash)
+    if not curr_user.verify_password(old_password):
+        return jsonify({
+            'code': 400,
+            'content': 'The password entered doesn\'t match the old password'
+        })
+    if curr_user.verify_password(new_password):
+        return jsonify({
+            'code': 400,
+            'content': "New password cannot be same as old password"
+        })
+    try:
+        curr_user.password_hash = new_password_hash
+        db.session.commit()
+        return jsonify({
+            'code': 200,
+            'content': 'Password changed successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 400,
+            'content': 'Password change unsuccessful'
+        })
+
+
 @app.route('/api/students/update_profile', methods=['POST'])
 @auth.login_required
 def update_profile():
@@ -699,12 +747,14 @@ create notice : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/
 
 
 
-create request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{"title":"First", "content":"Request", "request_type":4}' http://0.0.0.0:5000/api/requests/create_request
+create request : curl -u jiten:jiten -i -X POST -H "Content-Type: application/json" -d '{"title":"First", "content":"Request", "request_type":4}' http://0.0.0.0:5000/api/requests/create_request
 
 
 view request : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/requests/view_request
 
 view result : curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/results/view_result
+
+change password: curl -u jiten:jiten803 -i -X POST -H "Content-Type: application/json" -d '{"old_password":"jiten803", "new_password":"jiten", "confirm_password":"jiten"}' http://0.0.0.0:5000/api/students/change_password
 
 Before inserting the result create users otherwise the code will throw error.
 For creating users comment out line 673
