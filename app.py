@@ -143,7 +143,10 @@ def insert_result(semester):  # insert the result present in semester.txt file i
         line = line.split("\n")[0]
         x = line.split(',')
         user_id = x[0]
-        branch = User.query.filter_by(id=user_id).first().branch
+        user = User.query.filter_by(id=user_id).first()
+        branch = user.branch
+        if branch is 'admin' or branch is 'COE' or user.user_access_level > 1:
+            continue
         codes = open(branch, 'r')
         lines = codes.readlines()
         curr_sem_codes = lines[int(semester) - 1].split("\n")[0]
@@ -160,10 +163,10 @@ def insert_result(semester):  # insert the result present in semester.txt file i
             db.session.add(result)
             db.session.commit()
             print(result)
+            return "Result Inserted Successfully"
         except Exception as e:
-            print("Failed to insert result")
             f.close()
-            return
+            return "Failed to insert the result"
 
     f.close()
 
@@ -185,9 +188,19 @@ def generate_random_result(semester, num):  # generates random result for 100 us
 @app.route('/api/results/create_random_result', methods=['POST'])
 @auth.login_required
 def create_random_result(semesters=8, num=10):
-    for i in range(1, semesters + 1):
-        generate_random_result(str(i), num)
-        insert_result(str(i))
+    try:
+        for i in range(1, semesters + 1):
+            generate_random_result(str(i), num)
+            insert_result(str(i))
+        return jsonify({
+            'code': 200,
+            'content': 'Result inserted successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 400,
+            'content': 'Failed to insert result'
+        })
 
 
 @app.route('/api/results/view_result', methods=['POST'])
