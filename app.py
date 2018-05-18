@@ -57,6 +57,8 @@ class User(db.Model):
             'user_access_level': self.user_access_level,
             'id_card_url': self.id_card_url,
             'lib_card_url': self.lib_card_url,
+            'aadhar_card_url': self.aadhar_card_url,
+            'hostel_id_card_url': self.hostel_id_card_url,
             'id': self.id
         }
 
@@ -709,7 +711,6 @@ def update_profile():
                 user.email = email
             if name is not None:
                 user.name = name
-
 
             db.session.commit()
             return jsonify({
