@@ -144,6 +144,7 @@ def insert_result(semester):  # insert the result present in semester.txt file i
         x = line.split(',')
         user_id = x[0]
         user = User.query.filter_by(id=user_id).first()
+        print user.id
         branch = user.branch
         if branch is 'admin' or branch is 'COE' or user.user_access_level > 1:
             continue
@@ -163,18 +164,17 @@ def insert_result(semester):  # insert the result present in semester.txt file i
             db.session.add(result)
             db.session.commit()
             print(result)
-            return "Result Inserted Successfully"
         except Exception as e:
-            f.close()
-            return "Failed to insert the result"
+            print e.__str__()
+
 
     f.close()
+    return
 
 
 def generate_random_result(semester, num):  # generates random result for 100 users and saves it in semester.txt file
     f = open(semester + ".txt", 'w+')
-
-    for user in range(1, num):
+    for user in range(1, num+1):
         f.write("%d," % user)
         for number in range(1, 10):
             rand = random.randint(1, 101)
@@ -187,11 +187,14 @@ def generate_random_result(semester, num):  # generates random result for 100 us
 
 @app.route('/api/results/create_random_result', methods=['POST'])
 @auth.login_required
-def create_random_result(semesters=8, num=10):
+def create_random_result(semesters=8):
     try:
+        num = len(User.query.all())
+        print str(num)+"\n"
         for i in range(1, semesters + 1):
             generate_random_result(str(i), num)
             insert_result(str(i))
+
         return jsonify({
             'code': 200,
             'content': 'Result inserted successfully'
@@ -199,6 +202,7 @@ def create_random_result(semesters=8, num=10):
     except Exception as e:
         return jsonify({
             'code': 400,
+            'exception': e.__str__(),
             'content': 'Failed to insert result'
         })
 
@@ -827,4 +831,6 @@ num_of_users: This should be equal to number of users created by you before remo
 
 
 Branch codes naming conventions : Can create 3 branches. Use only two letters.
+
+curl -u coe:coe -i -X POST -H "Content-Type: application/json" -d '{}' http://0.0.0.0:5000/api/results/create_random_result
 """
